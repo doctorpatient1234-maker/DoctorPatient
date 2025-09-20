@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet } from "react-native";
+import { View, Text, TextInput, Button, StyleSheet } from "react-native";
 import { auth, db } from "../firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -10,42 +10,43 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     try {
-      // Authenticate user
+      // 1. Sign in with Firebase Auth
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCred.user.uid;
 
-      // Fetch user document from Firestore
-      const userDoc = await getDoc(doc(db, "users", uid));
+      // 2. Fetch user document from Firestore
+      const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const role = userData.role;
 
+        // 3. Navigate based on role
         if (role === "doctor") {
           navigation.replace("DoctorDashboard");
         } else {
           navigation.replace("PatientDashboard");
         }
       } else {
-        alert("No user data found in Firestore!");
+        alert("No user role found. Please register again.");
       }
     } catch (err) {
-      alert("Login failed: " + err.message);
+      alert(err.message);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Email:</Text>
+      <Text style={styles.title}>Login</Text>
+
+      <Text>Email</Text>
       <TextInput
         style={styles.input}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
-        keyboardType="email-address"
       />
 
-      <Text style={styles.label}>Password:</Text>
+      <Text>Password</Text>
       <TextInput
         style={styles.input}
         value={password}
@@ -54,15 +55,14 @@ export default function LoginScreen({ navigation }) {
       />
 
       <Button title="Login" onPress={handleLogin} />
-      <View style={{ marginTop: 10 }}>
-        <Button title="Go to Register" onPress={() => navigation.navigate("Register")} />
-      </View>
+      <View style={{ height: 10 }} />
+      <Button title="Go to Register" onPress={() => navigation.navigate("Register")} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 20 },
-  label: { marginTop: 10, fontWeight: "bold" },
-  input: { borderWidth: 1, padding: 10, marginVertical: 5, borderRadius: 5 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  input: { borderWidth: 1, borderRadius: 5, padding: 10, marginVertical: 8 },
 });

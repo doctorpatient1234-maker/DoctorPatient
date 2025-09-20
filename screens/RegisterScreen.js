@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet } from "react-native";
-import { Picker } from "@react-native-picker/picker"; // install if not already
+import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -12,34 +12,35 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     try {
-      // Create user in Firebase Authentication
+      // 1. Create user with Firebase Auth
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Save user info in Firestore under `users/{uid}`
+      // 2. Save extra info (role + email) in Firestore
       await setDoc(doc(db, "users", userCred.user.uid), {
         email: email,
         role: role,
       });
 
       alert(`Registered as ${role}`);
-      navigation.replace("Login"); // go back to login screen
+      navigation.navigate("Login"); // go back to Login screen
     } catch (err) {
-      alert("Registration failed: " + err.message);
+      alert(err.message);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Email:</Text>
+      <Text style={styles.title}>Register</Text>
+
+      <Text>Email</Text>
       <TextInput
         style={styles.input}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
-        keyboardType="email-address"
       />
 
-      <Text style={styles.label}>Password:</Text>
+      <Text>Password</Text>
       <TextInput
         style={styles.input}
         value={password}
@@ -47,26 +48,23 @@ export default function RegisterScreen({ navigation }) {
         secureTextEntry
       />
 
-      <Text style={styles.label}>Select Role:</Text>
+      <Text>Select Role</Text>
       <Picker
         selectedValue={role}
-        onValueChange={(itemValue) => setRole(itemValue)}
         style={styles.input}
+        onValueChange={(itemValue) => setRole(itemValue)}
       >
         <Picker.Item label="Patient" value="patient" />
         <Picker.Item label="Doctor" value="doctor" />
       </Picker>
 
       <Button title="Register" onPress={handleRegister} />
-      <View style={{ marginTop: 10 }}>
-        <Button title="Go to Login" onPress={() => navigation.navigate("Login")} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 20 },
-  label: { marginTop: 10, fontWeight: "bold" },
-  input: { borderWidth: 1, padding: 10, marginVertical: 5, borderRadius: 5 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  input: { borderWidth: 1, borderRadius: 5, padding: 10, marginVertical: 8 },
 });
