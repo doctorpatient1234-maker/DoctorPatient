@@ -5,9 +5,9 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../firebaseConfig";
@@ -17,11 +17,30 @@ import { doc, getDoc } from "firebase/firestore";
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const fadeAnim = useState(new Animated.Value(0))[0]; // for fade effect
+
+  const showError = (message) => {
+    setErrorMsg(message);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }, 3000);
+  };
 
   const handleLogin = async () => {
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      alert("Login successful!");
       const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
 
       if (userDoc.exists()) {
@@ -32,10 +51,30 @@ export default function LoginScreen({ navigation }) {
           navigation.replace("PatientDashboard");
         }
       } else {
-        Alert.alert("Error", "No user role found. Please register again.");
+        showError("No user role found. Please register again.");
       }
     } catch (err) {
-      Alert.alert("Login Failed", err.message);
+      let errorMessage = "Something went wrong. Please try again.";
+
+      switch (err.code) {
+        case "auth/invalid-email":
+          errorMessage = "Invalid email format.";
+          break;
+        case "auth/user-not-found":
+          errorMessage = "No account found with this email.";
+          break;
+        case "auth/wrong-password":
+          errorMessage = "Incorrect password.";
+          break;
+        case "auth/invalid-credential":
+          errorMessage = "Invalid email or password.";
+          break;
+        case "auth/too-many-requests":
+          errorMessage = "Too many failed attempts. Try again later.";
+          break;
+      }
+
+      showError(errorMessage);
     }
   };
 
@@ -44,6 +83,13 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
+      {/* Error Banner */}
+      {errorMsg ? (
+        <Animated.View style={[styles.errorBanner, { opacity: fadeAnim }]}>
+          <Text style={styles.errorText}>{errorMsg}</Text>
+        </Animated.View>
+      ) : null}
+
       {/* Header Icon */}
       <Ionicons name="medkit" size={60} color="#0063dbff" style={styles.icon} />
       <Text style={styles.title}>Welcome Back</Text>
@@ -98,6 +144,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
     padding: 20,
   },
+  errorBanner: {
+    position: "absolute",
+    top: 40,
+    backgroundColor: "#ff4d4f",
+    padding: 12,
+    borderRadius: 8,
+    width: "85%",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  errorText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
   icon: {
     marginBottom: 15,
   },
@@ -120,7 +181,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     marginVertical: 8,
-    width: "30%", // reduced from 100% → 80%
+    width: "70%",
     backgroundColor: "#fff",
   },
   input: {
@@ -132,7 +193,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     marginTop: 20,
-    width: "20%", // reduced width
+    width: "40%",
     alignItems: "center",
   },
   loginButtonText: {
