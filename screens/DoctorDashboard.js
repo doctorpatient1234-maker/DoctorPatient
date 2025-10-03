@@ -1,30 +1,7 @@
-/*
 import React from "react";
-import { View, Text, Button } from "react-native";
+import { View, Text, StyleSheet, Button, ScrollView } from "react-native";
 import { auth } from "../firebaseConfig";
-import { signOut } from "firebase/auth";
-
-export default function DoctorDashboard() {
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Doctor Akash Dashboard</Text>
-      <Button title="Logout" onPress={handleLogout} />
-    </View>
-  );
-}
-*/
-
-import React from "react";
-import { View, Text, StyleSheet, Button } from "react-native";
-import { auth } from "../firebaseConfig";
+import DoctorDetails from "./DoctorDetails";
 
 export default function DoctorDashboard({ navigation }) {
   const handleLogout = async () => {
@@ -34,17 +11,47 @@ export default function DoctorDashboard({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>👨‍⚕️ Doctor Dashboard</Text>
-      <Text>Welcome, Doctor! Here you’ll see patient lists, appointments, etc.</Text>
+      {/* ScrollView makes it responsive on mobile & laptop */}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>👨‍⚕️ Doctor Dashboard</Text>
+        <Text style={styles.subtitle}>
+          Welcome, Doctor! Here you’ll see patient lists, appointments, etc.
+        </Text>
 
-      <View style={{ marginTop: 20 }}>
-        <Button title="Logout" onPress={handleLogout} />
-      </View>
+        <View style={styles.logoutBtn}>
+          <Button title="Logout" onPress={handleLogout} />
+        </View>
+
+        {/* Doctor Info */}
+        <DoctorDetails />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA", // light background for real-app feel
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 8,
+    color: "#0063dbff",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#444",
+    marginBottom: 20,
+  },
+  logoutBtn: {
+    alignSelf: "flex-start",
+    marginBottom: 20,
+  },
 });
