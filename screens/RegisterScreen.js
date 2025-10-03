@@ -38,6 +38,17 @@ export default function RegisterScreen({ navigation }) {
         role,
       });
 
+     /* if (userCred?.user?.uid && fullName && email && role) {
+        await setDoc(doc(db, "users", userCred.user.uid), {
+        fullName,
+        email,
+        role,
+      });
+    } else {
+      console.error("Missing data:", { fullName, email, role, uid: userCred?.user?.uid });
+        }
+*/
+
       Alert.alert("Success", "Account created successfully!");
       navigation.replace(role === "doctor" ? "DoctorDashboard" : "PatientDashboard");
     } catch (err) {
