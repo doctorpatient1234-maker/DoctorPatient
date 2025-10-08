@@ -9,6 +9,7 @@ import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import DoctorDashboard from "./screens/DoctorDashboard";
 import PatientDashboard from "./screens/PatientDashboard";
+import { Platform } from "react-native";
 
 const Stack = createStackNavigator();
 
@@ -17,17 +18,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {              // Added so that user will not logout after window refresh
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const role = userDoc.data().role;
-            if (role === "doctor") {
-              setInitialScreen("DoctorDashboard");
-            } else {
-              setInitialScreen("PatientDashboard");
-            }
+            setInitialScreen(role === "doctor" ? "DoctorDashboard" : "PatientDashboard");
           } else {
             setInitialScreen("Login");
           }
@@ -44,8 +41,36 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  if (loading) return null; // or a splash screen
+  // 👇 Add global scrollbar style for web
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const style = document.createElement("style");
+      style.innerHTML = `
+        ::-webkit-scrollbar {
+          width: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background-color: rgba(0, 99, 219, 0.6);
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(0, 99, 219, 0.9);
+        }
+        ::-webkit-scrollbar-track {
+          background: #e6e6e6;
+          border-radius: 10px;
+        }
+        html, body {
+          overflow-y: scroll; /* ensures scrollbar always visible */
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
+  if (loading) return null;
+
+  
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName={initialScreen}>

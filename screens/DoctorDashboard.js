@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Button, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Button, SafeAreaView } from "react-native";
 import { auth } from "../firebaseConfig";
 import DoctorDetails from "./DoctorDetails";
 
@@ -10,9 +10,8 @@ export default function DoctorDashboard({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* ScrollView makes it responsive on mobile & laptop */}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
         <Text style={styles.title}>👨‍⚕️ Doctor Dashboard</Text>
         <Text style={styles.subtitle}>
           Welcome, Doctor! Here you’ll see patient lists, appointments, etc.
@@ -22,20 +21,21 @@ export default function DoctorDashboard({ navigation }) {
           <Button title="Logout" onPress={handleLogout} />
         </View>
 
-        {/* Doctor Info */}
+        {/* Doctor Info (contains its own scroll view) */}
         <DoctorDetails />
-      </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA", // light background for real-app feel
-  },
-  scrollContent: {
-    flexGrow: 1,
+    backgroundColor: "#F8F9FA",
     padding: 20,
   },
   title: {
