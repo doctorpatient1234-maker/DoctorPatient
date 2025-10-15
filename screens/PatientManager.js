@@ -168,12 +168,15 @@ export default function PatientManager() {
 }
 
 const styles = StyleSheet.create({
+
   container: { marginTop: 20 },
+
   topButtons: {
     flexDirection: "row",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     marginBottom: 10,
   },
+
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
