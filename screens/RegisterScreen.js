@@ -19,35 +19,33 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("patient");
+  const [specialization, setSpecialization] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || (role === "doctor" && !specialization)) {
       Alert.alert("Error", "Please fill all fields.");
       return;
     }
+
     setLoading(true);
     try {
       // Create user in Firebase Auth
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Save user info in Firestore
-      await setDoc(doc(db, "users", userCred.user.uid), {
+      // Prepare user data
+      const userData = {
         fullName,
         email,
         role,
-      });
+      };
 
-     /* if (userCred?.user?.uid && fullName && email && role) {
-        await setDoc(doc(db, "users", userCred.user.uid), {
-        fullName,
-        email,
-        role,
-      });
-    } else {
-      console.error("Missing data:", { fullName, email, role, uid: userCred?.user?.uid });
-        }
-*/
+      if (role === "doctor") {
+        userData.specialization = specialization;
+      }
+
+      // Save user info in Firestore
+      await setDoc(doc(db, "users", userCred.user.uid), userData);
 
       Alert.alert("Success", "Account created successfully!");
       navigation.replace(role === "doctor" ? "DoctorDashboard" : "PatientDashboard");
@@ -106,12 +104,49 @@ export default function RegisterScreen({ navigation }) {
         <Picker
           selectedValue={role}
           style={styles.picker}
-          onValueChange={(itemValue) => setRole(itemValue)}
+          onValueChange={(itemValue) => {
+            setRole(itemValue);
+            setSpecialization(""); // reset specialization if switching roles
+          }}
         >
           <Picker.Item label="Doctor" value="doctor" />
           <Picker.Item label="Patient" value="patient" />
         </Picker>
       </View>
+
+      {/* Specialization (Doctor only) */}
+      {role === "doctor" && (
+        <View style={styles.inputContainer}>
+          <Ionicons name="medkit-outline" size={20} color="#0063dbff" />
+          <Picker
+            selectedValue={specialization}
+            style={styles.picker}
+            onValueChange={(itemValue) => setSpecialization(itemValue)}
+          >
+            <Picker.Item label="Select Specialization" value="" />
+            <Picker.Item label="Cardiologist" value="Cardiologist" />
+            <Picker.Item label="Dermatologist" value="Dermatologist" />
+            <Picker.Item label="Neurologist" value="Neurologist" />
+            <Picker.Item label="Pediatrician" value="Pediatrician" />
+            <Picker.Item label="General Physician" value="General Physician" />
+
+            
+ 
+            <Picker.Item label="Orthopedic" value="Orthopedic" />
+            <Picker.Item label="Ayurveda" value="Ayurveda" />
+            <Picker.Item label="Homeopathy" value="Homeopathy" />
+            <Picker.Item label="Nephrologist" value="Nephrologist" />
+            <Picker.Item label="Urologist" value="Urologist" />
+            <Picker.Item label="Dentist" value="Dentist" />
+            <Picker.Item label="Ophthalmology" value="Ophthalmology" />
+            <Picker.Item label="Oncologist" value="Oncologist" />
+            <Picker.Item label="Pulmonologist" value="Pulmonologist" />
+            <Picker.Item label="Psychiatrist" value="Psychiatrist" />
+            <Picker.Item label="Radiologist" value="Radiologist" />
+            <Picker.Item label="Gynecology" value="Gynecology" />
+          </Picker>
+        </View>
+      )}
 
       {/* Register Button */}
       <TouchableOpacity
@@ -165,7 +200,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   input: { flex: 1, marginLeft: 10 },
-  picker: { flex: 1, marginLeft: 10 },
+  picker: {
+    flex: 1,
+    marginLeft: 10,
+    height: 40,
+  },
   registerButton: {
     backgroundColor: "#0063dbff",
     paddingVertical: 14,
