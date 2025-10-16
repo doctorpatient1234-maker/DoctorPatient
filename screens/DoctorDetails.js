@@ -9,7 +9,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
-  Platform,
+  
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
@@ -17,8 +17,19 @@ import { doc, onSnapshot, updateDoc, deleteField } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
 import PatientManager from "./PatientManager";
 import LogoutButton from "./LogoutButton";
+import { Dimensions, Platform } from "react-native";
 
-const drawerWidth = 320;
+
+//const drawerWidth = 320;
+
+const screenWidth = Dimensions.get("window").width;
+
+const drawerWidth = Platform.select({
+  ios: screenWidth * 0.75,       // 75% width on iOS
+  android: screenWidth * 0.7,    // 80% width on Android
+  web: Math.min(screenWidth * 0.3, 400), // Max 400px or 30% on Web
+});
+
 
 export default function DoctorDetails() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -212,7 +223,17 @@ export default function DoctorDetails() {
       </Animated.View>
 
       {/* Main App View */}
-      <PatientManager />
+      {/* 
+      <View style={{ zIndex: 1 }}>
+          <PatientManager />
+      </View>
+      */}
+   
+
+    <View style={{ flex: 1, zIndex: 1, position: "relative" }}>
+  <PatientManager />
+</View>
+
     </View>
   );
 }
@@ -306,4 +327,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#555",
   },
+
+  overlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.3)",
+  zIndex: 10,
+},
+
+drawer: {
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  left: 0,
+  width: drawerWidth,
+  backgroundColor: "#fafafa",
+  zIndex: 20,
+  padding: 20,
+  borderRightWidth: 1,
+  borderColor: "#ddd",
+},
+
+
+
+ 
+
+
 });
