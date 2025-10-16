@@ -15,8 +15,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../firebaseConfig";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
-
+import { doc, onSnapshot, updateDoc, deleteField } from "firebase/firestore";
 import PatientManager from "./PatientManager";
 
 const { width, height } = Dimensions.get("window");
@@ -32,11 +31,13 @@ export default function DoctorDetails({ navigation }) {
 
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
 
+  // 🔹 Logout
   const handleLogout = async () => {
     await auth.signOut();
     navigation?.replace?.("Login") ?? (window.location.href = "/login");
   };
 
+  // 🔹 Load user data from Firestore
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -52,6 +53,7 @@ export default function DoctorDetails({ navigation }) {
     return () => unsub();
   }, []);
 
+  // 🔹 Drawer open/close
   const openMenu = () => {
     setMenuOpen(true);
     Animated.timing(slideAnim, {
@@ -73,31 +75,61 @@ export default function DoctorDetails({ navigation }) {
     });
   };
 
+  // 🔹 Edit toggle
   const handleEditToggle = () => setEditMode(true);
   const handleCancelEdit = () => {
     setEditMode(false);
     setEditableData(userData);
   };
 
+  // 🔹 Save profile with deleteField support
   const handleSave = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-      await updateDoc(doc(db, "users", user.uid), editableData);
+      const userRef = doc(db, "users", user.uid);
+
+      // At least one contact method check
+      const hasEmail = editableData.email?.trim();
+      const hasMobile = editableData.mobile?.trim();
+      if (!hasEmail && !hasMobile) {
+        Alert.alert(
+          "Error",
+          "Please provide at least one contact detail (email or mobile)."
+        );
+        return;
+      }
+
+      // Prepare update object
+      const updatedData = { ...editableData };
+
+      // Handle field deletions
+      if (!hasEmail) updatedData.email = deleteField();
+      if (!hasMobile) updatedData.mobile = deleteField();
+
+      await updateDoc(userRef, updatedData);
+
       setEditMode(false);
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
+      console.error("Error updating profile:", error);
       Alert.alert("Error", "Could not update profile.");
     }
   };
 
+  // 🔹 Field change handler
   const handleChange = (field, value) => {
     setEditableData({ ...editableData, [field]: value });
   };
 
+  // 🔹 Disable logic
+  const isEmailDisabled = !editableData.mobile?.trim();
+  const isMobileDisabled = !editableData.email?.trim();
+
   return (
     <View style={styles.container}>
+      {/* Navbar */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={openMenu} style={styles.hamburger}>
           <Ionicons name="menu" size={32} color="#0063dbff" />
@@ -105,12 +137,15 @@ export default function DoctorDetails({ navigation }) {
         <Text style={styles.title}>My App</Text>
       </View>
 
+      {/* Main content */}
       <View style={styles.content}>
         <Text style={styles.hint}>Click ☰ to see your details</Text>
       </View>
 
+      {/* Patient section */}
       <PatientManager patients={patients} setPatients={setPatients} />
 
+      {/* Drawer */}
       {menuOpen && (
         <>
           <Pressable style={styles.overlay} onPress={closeMenu} />
@@ -145,32 +180,40 @@ export default function DoctorDetails({ navigation }) {
                       {/* Full Name */}
                       <TextInput
                         style={styles.input}
-                        value={editableData.fullName}
+                        value={editableData.fullName || ""}
                         onChangeText={(text) => handleChange("fullName", text)}
                         placeholder="Full Name"
                       />
 
                       {/* Email */}
                       <TextInput
-                        style={styles.input}
-                        value={editableData.email}
+                        style={[
+                          styles.input,
+                          isEmailDisabled && styles.disabledInput,
+                        ]}
+                        value={editableData.email ?? ""}
                         onChangeText={(text) => handleChange("email", text)}
                         placeholder="Email"
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        editable={!isEmailDisabled}
                       />
 
                       {/* Mobile */}
                       <TextInput
-                        style={styles.input}
-                        value={editableData.mobile || ""}
+                        style={[
+                          styles.input,
+                          isMobileDisabled && styles.disabledInput,
+                        ]}
+                        value={editableData.mobile ?? ""}
                         onChangeText={(text) => handleChange("mobile", text)}
                         placeholder="Mobile Number"
                         keyboardType="phone-pad"
                         maxLength={10}
+                        editable={!isMobileDisabled}
                       />
 
-                      {/* Doctor Specialization */}
+                      {/* Specialization */}
                       {editableData.role === "doctor" && (
                         <View style={styles.pickerWrapper}>
                           <Picker
@@ -246,6 +289,7 @@ export default function DoctorDetails({ navigation }) {
                         </View>
                       )}
 
+                      {/* Buttons */}
                       <View style={styles.editButtons}>
                         <Button title="Save" onPress={handleSave} />
                         <View style={{ width: 10 }} />
@@ -258,16 +302,21 @@ export default function DoctorDetails({ navigation }) {
                     </>
                   ) : (
                     <>
+                      {/* View Mode */}
                       <Text style={styles.drawerItem}>
                         👤 {userData.fullName}
                       </Text>
                       <Text style={styles.drawerItem}>💼 {userData.role}</Text>
-                      {userData.email ? (
-                        <Text style={styles.drawerItem}>📧 {userData.email}</Text>
-                      ) : null}
-                      {userData.mobile ? (
-                        <Text style={styles.drawerItem}>📱 {userData.mobile}</Text>
-                      ) : null}
+                      {userData.email && (
+                        <Text style={styles.drawerItem}>
+                          📧 {userData.email}
+                        </Text>
+                      )}
+                      {userData.mobile && (
+                        <Text style={styles.drawerItem}>
+                          📱 {userData.mobile}
+                        </Text>
+                      )}
                       {userData.role === "doctor" &&
                         userData.specialization && (
                           <Text style={styles.drawerItem}>
@@ -348,6 +397,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#f9f9f9",
     fontSize: 16,
+  },
+  disabledInput: {
+    backgroundColor: "#eaeaea",
+    color: "#999",
   },
   pickerWrapper: {
     borderWidth: 1,
