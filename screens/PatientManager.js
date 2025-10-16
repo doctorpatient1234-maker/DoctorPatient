@@ -126,7 +126,7 @@ export default function PatientManager() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          
             <View style={{ marginTop: 20, marginLeft: 20 }}>
               <TextInput
                 style={styles.input}
@@ -174,7 +174,7 @@ export default function PatientManager() {
               />
               <Button title="Submit Patient" onPress={handleAddPatient} />
             </View>
-          </TouchableWithoutFeedback>
+          
         </KeyboardAvoidingView>
       )}
 

@@ -242,7 +242,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   menuIcon: {
     position: "absolute",
-    top: 50,
+    top: 10,
+    paddingVertical: 12,
     left: 20,
     zIndex: 2,
   },
