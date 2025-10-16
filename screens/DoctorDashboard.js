@@ -15,21 +15,20 @@ export default function DoctorDashboard({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>👨‍⚕️ Doctor Dashboard</Text>
-        <Text style={styles.subtitle}>
-          Welcome, Doctor! Here you’ll see patient lists, appointments, etc.
-        </Text>
 
-        <View style={styles.logoutBtn}>
-          <Button title="Logout" onPress={handleLogout} />
+      <View style={styles.container}>
+
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.title}>👨‍⚕️ Doctor Dashboard</Text>
+          <Text style={styles.subtitle}>
+            Welcome, Doctor! Here you’ll see patient lists, appointments, etc.
+          </Text>
         </View>
+
 
         {/* Doctor Info (contains its own scroll view) */}
         <DoctorDetails />
         
-
-
 
       </View>
     </SafeAreaView>

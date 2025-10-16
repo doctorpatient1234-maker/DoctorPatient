@@ -17,26 +17,36 @@ import { doc, setDoc } from "firebase/firestore";
 export default function RegisterScreen({ navigation }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("patient");
   const [specialization, setSpecialization] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password || (role === "doctor" && !specialization)) {
-      Alert.alert("Error", "Please fill all fields.");
+    if (!fullName || (!email && !mobile) || (email && !password) || (role === "doctor" && !specialization)) {
+      Alert.alert("Error", "Please fill all mandatory fields.\n(Either Email or Mobile number required)");
       return;
     }
 
     setLoading(true);
     try {
-      // Create user in Firebase Auth
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      let userId;
+
+      // If email is provided, create Firebase Auth user
+      if (email) {
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        userId = userCred.user.uid;
+      } else {
+        // If only mobile is provided, generate a custom ID
+        userId = `mobile_${mobile}`;
+      }
 
       // Prepare user data
       const userData = {
         fullName,
-        email,
+        email: email || null,
+        mobile: mobile || null,
         role,
       };
 
@@ -45,7 +55,7 @@ export default function RegisterScreen({ navigation }) {
       }
 
       // Save user info in Firestore
-      await setDoc(doc(db, "users", userCred.user.uid), userData);
+      await setDoc(doc(db, "users", userId), userData);
 
       Alert.alert("Success", "Account created successfully!");
       navigation.replace(role === "doctor" ? "DoctorDashboard" : "PatientDashboard");
@@ -73,12 +83,26 @@ export default function RegisterScreen({ navigation }) {
         />
       </View>
 
+
+      {/* Mobile */}
+      <View style={styles.inputContainer}>
+        <Ionicons name="call-outline" size={20} color="#0063dbff" />
+        <TextInput
+          style={styles.input}
+          placeholder="Mobile Number (optional if Email entered)"
+          value={mobile}
+          onChangeText={setMobile}
+          keyboardType="phone-pad"
+          maxLength={10}
+        />
+      </View>
+
       {/* Email */}
       <View style={styles.inputContainer}>
         <Ionicons name="mail-outline" size={20} color="#0063dbff" />
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder="Email (optional if Mobile entered)"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -86,17 +110,21 @@ export default function RegisterScreen({ navigation }) {
         />
       </View>
 
-      {/* Password */}
-      <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color="#0063dbff" />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-      </View>
+      
+
+      {/* Password (only if email entered) */}
+      {email ? (
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#0063dbff" />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
+      ) : null}
 
       {/* Role Dropdown */}
       <View style={styles.inputContainer}>
@@ -106,7 +134,7 @@ export default function RegisterScreen({ navigation }) {
           style={styles.picker}
           onValueChange={(itemValue) => {
             setRole(itemValue);
-            setSpecialization(""); // reset specialization if switching roles
+            setSpecialization("");
           }}
         >
           <Picker.Item label="Doctor" value="doctor" />
@@ -129,9 +157,6 @@ export default function RegisterScreen({ navigation }) {
             <Picker.Item label="Neurologist" value="Neurologist" />
             <Picker.Item label="Pediatrician" value="Pediatrician" />
             <Picker.Item label="General Physician" value="General Physician" />
-
-            
- 
             <Picker.Item label="Orthopedic" value="Orthopedic" />
             <Picker.Item label="Ayurveda" value="Ayurveda" />
             <Picker.Item label="Homeopathy" value="Homeopathy" />
@@ -200,11 +225,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   input: { flex: 1, marginLeft: 10 },
-  picker: {
-    flex: 1,
-    marginLeft: 10,
-    height: 40,
-  },
+  picker: { flex: 1, marginLeft: 10, height: 40 },
   registerButton: {
     backgroundColor: "#0063dbff",
     paddingVertical: 14,

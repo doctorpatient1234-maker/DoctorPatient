@@ -28,6 +28,7 @@ export default function DoctorDetails({ navigation }) {
   const [userData, setUserData] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editableData, setEditableData] = useState({});
+  const [patients, setPatients] = useState([]);
 
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
 
@@ -95,8 +96,6 @@ export default function DoctorDetails({ navigation }) {
     setEditableData({ ...editableData, [field]: value });
   };
 
-  const [patients, setPatients] = useState([]);
-
   return (
     <View style={styles.container}>
       <View style={styles.navbar}>
@@ -108,10 +107,8 @@ export default function DoctorDetails({ navigation }) {
 
       <View style={styles.content}>
         <Text style={styles.hint}>Click ☰ to see your details</Text>
-        {/* Show PatientManager for doctors only */}
-
-  
       </View>
+
       <PatientManager patients={patients} setPatients={setPatients} />
 
       {menuOpen && (
@@ -145,19 +142,35 @@ export default function DoctorDetails({ navigation }) {
 
                   {editMode ? (
                     <>
+                      {/* Full Name */}
                       <TextInput
                         style={styles.input}
                         value={editableData.fullName}
                         onChangeText={(text) => handleChange("fullName", text)}
                         placeholder="Full Name"
                       />
+
+                      {/* Email */}
                       <TextInput
                         style={styles.input}
                         value={editableData.email}
                         onChangeText={(text) => handleChange("email", text)}
                         placeholder="Email"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
                       />
 
+                      {/* Mobile */}
+                      <TextInput
+                        style={styles.input}
+                        value={editableData.mobile || ""}
+                        onChangeText={(text) => handleChange("mobile", text)}
+                        placeholder="Mobile Number"
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                      />
+
+                      {/* Doctor Specialization */}
                       {editableData.role === "doctor" && (
                         <View style={styles.pickerWrapper}>
                           <Picker
@@ -249,9 +262,12 @@ export default function DoctorDetails({ navigation }) {
                         👤 {userData.fullName}
                       </Text>
                       <Text style={styles.drawerItem}>💼 {userData.role}</Text>
-                      <Text style={styles.drawerItem}>
-                        📧 {userData.email}
-                      </Text>
+                      {userData.email ? (
+                        <Text style={styles.drawerItem}>📧 {userData.email}</Text>
+                      ) : null}
+                      {userData.mobile ? (
+                        <Text style={styles.drawerItem}>📱 {userData.mobile}</Text>
+                      ) : null}
                       {userData.role === "doctor" &&
                         userData.specialization && (
                           <Text style={styles.drawerItem}>
@@ -263,9 +279,6 @@ export default function DoctorDetails({ navigation }) {
                       </View>
                     </>
                   )}
-
-             
-
                 </>
               ) : (
                 <Text style={styles.drawerItem}>Loading...</Text>
@@ -296,7 +309,6 @@ const styles = StyleSheet.create({
   },
   hamburger: { position: "absolute", left: 20, top: 15 },
   content: { flex: 1, justifyContent: "center", alignItems: "center" },
-  welcome: { fontSize: 22, fontWeight: "bold", color: "#333" },
   hint: { marginTop: 10, fontSize: 16, color: "#777" },
   overlay: {
     position: "absolute",
