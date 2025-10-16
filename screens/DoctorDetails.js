@@ -1,59 +1,60 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  Animated,
-  Dimensions,
-  Pressable,
-  Button,
   TextInput,
-  Alert,
+  StyleSheet,
+  Animated,
+  Pressable,
   ScrollView,
+  Alert,
+  Platform,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
-import { auth, db } from "../firebaseConfig";
+import { Picker } from "@react-native-picker/picker";
 import { doc, onSnapshot, updateDoc, deleteField } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import PatientManager from "./PatientManager";
+import LogoutButton from "./LogoutButton";
 
-const { width, height } = Dimensions.get("window");
-const isSmallScreen = width < 768;
-const drawerWidth = isSmallScreen ? width * 0.7 : width * 0.3;
+const drawerWidth = 320;
 
-export default function DoctorDetails({ navigation }) {
+export default function DoctorDetails() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [editMode, setEditMode] = useState(false);
   const [editableData, setEditableData] = useState({});
-  const [patients, setPatients] = useState([]);
+  const [editMode, setEditMode] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
+  const unsubRef = useRef(null);
 
-  // 🔹 Logout
-  const handleLogout = async () => {
-    await auth.signOut();
-    navigation?.replace?.("Login") ?? (window.location.href = "/login");
-  };
-
-  // 🔹 Load user data from Firestore
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
 
-    const unsub = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserData(data);
-        setEditableData(data);
+    const userRef = doc(db, "users", user.uid);
+    unsubRef.current = onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setUserData(data);
+          setEditableData(data);
+        } else {
+          console.log("User data not found");
+        }
+      },
+      (error) => {
+        console.error("Firestore listener error:", error);
       }
-    });
+    );
 
-    return () => unsub();
+    return () => {
+      if (unsubRef.current) unsubRef.current();
+    };
   }, []);
 
-  // 🔹 Drawer open/close
   const openMenu = () => {
     setMenuOpen(true);
     Animated.timing(slideAnim, {
@@ -68,297 +69,162 @@ export default function DoctorDetails({ navigation }) {
       toValue: -drawerWidth,
       duration: 300,
       useNativeDriver: false,
-    }).start(() => {
-      setMenuOpen(false);
-      setEditMode(false);
-      setEditableData(userData);
-    });
+    }).start(() => setMenuOpen(false));
   };
 
-  // 🔹 Edit toggle
-  const handleEditToggle = () => setEditMode(true);
-  const handleCancelEdit = () => {
+  const handleEditToggle = () => {
+    setEditMode(true);
+  };
+
+  const handleCancel = () => {
     setEditMode(false);
     setEditableData(userData);
   };
 
-  // 🔹 Save profile with deleteField support
   const handleSave = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const userRef = doc(db, "users", user.uid);
-
-      // At least one contact method check
-      const hasEmail = editableData.email?.trim();
-      const hasMobile = editableData.mobile?.trim();
-      if (!hasEmail && !hasMobile) {
-        Alert.alert(
-          "Error",
-          "Please provide at least one contact detail (email or mobile)."
-        );
-        return;
-      }
-
-      // Prepare update object
+      const userRef = doc(db, "users", auth.currentUser.uid);
       const updatedData = { ...editableData };
 
-      // Handle field deletions
-      if (!hasEmail) updatedData.email = deleteField();
-      if (!hasMobile) updatedData.mobile = deleteField();
+      // Remove fields if empty
+      if (!editableData.mobile) updatedData.mobile = deleteField();
+      if (!editableData.email) updatedData.email = deleteField();
 
       await updateDoc(userRef, updatedData);
-
+      setUserData(editableData);
       setEditMode(false);
-      Alert.alert("Success", "Profile updated successfully!");
+      Alert.alert("✅ Success", "Details updated successfully!");
     } catch (error) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Error", "Could not update profile.");
+      console.error("Error saving data:", error);
+      Alert.alert("❌ Error", "Failed to update details. Try again.");
     }
   };
 
-  // 🔹 Field change handler
-  const handleChange = (field, value) => {
-    setEditableData({ ...editableData, [field]: value });
+  const handleChange = (key, value) => {
+    setEditableData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // 🔹 Disable logic
-  const isEmailDisabled = !editableData.mobile?.trim();
-  const isMobileDisabled = !editableData.email?.trim();
+  const isMobileDisabled = !editableData.email || editableData.email.trim() === "";
+  const isEmailDisabled = !editableData.mobile || editableData.mobile.trim() === "";
 
   return (
     <View style={styles.container}>
-      {/* Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity onPress={openMenu} style={styles.hamburger}>
-          <Ionicons name="menu" size={32} color="#0063dbff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My App</Text>
-      </View>
+      {/* Menu Button */}
+      <TouchableOpacity onPress={openMenu} style={styles.menuIcon}>
+        <Ionicons name="menu" size={28} color="#333" />
+      </TouchableOpacity>
 
-      {/* Main content */}
-      <View style={styles.content}>
-        <Text style={styles.hint}>Click ☰ to see your details</Text>
-      </View>
-
-      {/* Patient section */}
-      <PatientManager patients={patients} setPatients={setPatients} />
+      {/* Overlay */}
+      {menuOpen && <Pressable style={styles.overlay} onPress={closeMenu} />}
 
       {/* Drawer */}
-      {menuOpen && (
-        <>
-          <Pressable style={styles.overlay} onPress={closeMenu} />
-          <Animated.View
-            style={[
-              styles.drawer,
-              {
-                width: drawerWidth,
-                height: height,
-                transform: [{ translateX: slideAnim }],
-              },
-            ]}
-          >
-            <ScrollView style={styles.drawerContent}>
-              {userData ? (
+      <Animated.View style={[styles.drawer, { left: slideAnim }]}>
+        <Text style={styles.drawerTitle}>Doctor Profile</Text>
+
+        {userData ? (
+          <ScrollView style={styles.content}>
+            {/* Name */}
+            <Text style={styles.label}>Name</Text>
+            <TextInput
+              style={styles.input}
+              value={editableData.fullName || ""}
+              editable={editMode}
+              onChangeText={(text) => handleChange("fullName", text)}
+            />
+
+            {/* Mobile */}
+            <Text style={styles.label}>Mobile</Text>
+            <TextInput
+              style={[styles.input, isMobileDisabled && styles.disabledInput]}
+              value={editableData.mobile || ""}
+              editable={editMode && !isMobileDisabled}
+              onChangeText={(text) => handleChange("mobile", text)}
+              keyboardType="number-pad"
+            />
+
+            {/* Email */}
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, isEmailDisabled && styles.disabledInput]}
+              value={editableData.email || ""}
+              editable={editMode && !isEmailDisabled}
+              onChangeText={(text) => handleChange("email", text)}
+            />
+
+            {/* Specialization */}
+            <Text style={styles.label}>Specialization</Text>
+            <Picker
+              enabled={editMode}
+              selectedValue={editableData.specialization || ""}
+              onValueChange={(itemValue) => handleChange("specialization", itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Specialization" value="" />
+              <Picker.Item label="Cardiologist" value="Cardiologist" />
+              <Picker.Item label="Dermatologist" value="Dermatologist" />
+              <Picker.Item label="Neurologist" value="Neurologist" />
+              <Picker.Item label="Pediatrician" value="Pediatrician" />
+              <Picker.Item label="General Physician" value="General Physician" />
+              <Picker.Item label="Orthopedic" value="Orthopedic" />
+              <Picker.Item label="Ayurveda" value="Ayurveda" />
+              <Picker.Item label="Homeopathy" value="Homeopathy" />
+              <Picker.Item label="Nephrologist" value="Nephrologist" />
+              <Picker.Item label="Urologist" value="Urologist" />
+              <Picker.Item label="Dentist" value="Dentist" />
+              <Picker.Item label="Ophthalmology" value="Ophthalmology" />
+              <Picker.Item label="Oncologist" value="Oncologist" />
+              <Picker.Item label="Pulmonologist" value="Pulmonologist" />
+              <Picker.Item label="Psychiatrist" value="Psychiatrist" />
+              <Picker.Item label="Radiologist" value="Radiologist" />
+              <Picker.Item label="Gynecology" value="Gynecology" />
+              
+            </Picker>
+
+            {/* Buttons */}
+            <View style={styles.buttonContainer}>
+              {editMode ? (
                 <>
-                  {!editMode && (
-                    <TouchableOpacity
-                      onPress={handleEditToggle}
-                      style={styles.editIcon}
-                    >
-                      <Ionicons
-                        name="create-outline"
-                        size={24}
-                        color="#0063dbff"
-                      />
-                    </TouchableOpacity>
-                  )}
-
-                  {editMode ? (
-                    <>
-                      {/* Full Name */}
-                      <TextInput
-                        style={styles.input}
-                        value={editableData.fullName || ""}
-                        onChangeText={(text) => handleChange("fullName", text)}
-                        placeholder="Full Name"
-                      />
-
-                      {/* Email */}
-                      <TextInput
-                        style={[
-                          styles.input,
-                          isEmailDisabled && styles.disabledInput,
-                        ]}
-                        value={editableData.email ?? ""}
-                        onChangeText={(text) => handleChange("email", text)}
-                        placeholder="Email"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        editable={!isEmailDisabled}
-                      />
-
-                      {/* Mobile */}
-                      <TextInput
-                        style={[
-                          styles.input,
-                          isMobileDisabled && styles.disabledInput,
-                        ]}
-                        value={editableData.mobile ?? ""}
-                        onChangeText={(text) => handleChange("mobile", text)}
-                        placeholder="Mobile Number"
-                        keyboardType="phone-pad"
-                        maxLength={10}
-                        editable={!isMobileDisabled}
-                      />
-
-                      {/* Specialization */}
-                      {editableData.role === "doctor" && (
-                        <View style={styles.pickerWrapper}>
-                          <Picker
-                            selectedValue={editableData.specialization || ""}
-                            onValueChange={(value) =>
-                              handleChange("specialization", value)
-                            }
-                          >
-                            <Picker.Item
-                              label="Select Specialization"
-                              value=""
-                            />
-                            <Picker.Item
-                              label="Cardiologist"
-                              value="Cardiologist"
-                            />
-                            <Picker.Item
-                              label="Dermatologist"
-                              value="Dermatologist"
-                            />
-                            <Picker.Item
-                              label="Neurologist"
-                              value="Neurologist"
-                            />
-                            <Picker.Item
-                              label="Pediatrician"
-                              value="Pediatrician"
-                            />
-                            <Picker.Item
-                              label="General Physician"
-                              value="General Physician"
-                            />
-                            <Picker.Item
-                              label="Orthopedic"
-                              value="Orthopedic"
-                            />
-                            <Picker.Item label="Ayurveda" value="Ayurveda" />
-                            <Picker.Item
-                              label="Homeopathy"
-                              value="Homeopathy"
-                            />
-                            <Picker.Item
-                              label="Nephrologist"
-                              value="Nephrologist"
-                            />
-                            <Picker.Item label="Urologist" value="Urologist" />
-                            <Picker.Item label="Dentist" value="Dentist" />
-                            <Picker.Item
-                              label="Ophthalmology"
-                              value="Ophthalmology"
-                            />
-                            <Picker.Item
-                              label="Oncologist"
-                              value="Oncologist"
-                            />
-                            <Picker.Item
-                              label="Pulmonologist"
-                              value="Pulmonologist"
-                            />
-                            <Picker.Item
-                              label="Psychiatrist"
-                              value="Psychiatrist"
-                            />
-                            <Picker.Item
-                              label="Radiologist"
-                              value="Radiologist"
-                            />
-                            <Picker.Item
-                              label="Gynecology"
-                              value="Gynecology"
-                            />
-                          </Picker>
-                        </View>
-                      )}
-
-                      {/* Buttons */}
-                      <View style={styles.editButtons}>
-                        <Button title="Save" onPress={handleSave} />
-                        <View style={{ width: 10 }} />
-                        <Button
-                          title="Cancel"
-                          onPress={handleCancelEdit}
-                          color="#888"
-                        />
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      {/* View Mode */}
-                      <Text style={styles.drawerItem}>
-                        👤 {userData.fullName}
-                      </Text>
-                      <Text style={styles.drawerItem}>💼 {userData.role}</Text>
-                      {userData.email && (
-                        <Text style={styles.drawerItem}>
-                          📧 {userData.email}
-                        </Text>
-                      )}
-                      {userData.mobile && (
-                        <Text style={styles.drawerItem}>
-                          📱 {userData.mobile}
-                        </Text>
-                      )}
-                      {userData.role === "doctor" &&
-                        userData.specialization && (
-                          <Text style={styles.drawerItem}>
-                            🩺 {userData.specialization}
-                          </Text>
-                        )}
-                      <View style={styles.logoutBtn}>
-                        <Button title="Logout" onPress={handleLogout} />
-                      </View>
-                    </>
-                  )}
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                    <Text style={styles.btnText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+                    <Text style={styles.btnText}>Cancel</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
-                <Text style={styles.drawerItem}>Loading...</Text>
+                <TouchableOpacity style={styles.editBtn} onPress={handleEditToggle}>
+                  <Text style={styles.btnText}>Edit</Text>
+                </TouchableOpacity>
               )}
-            </ScrollView>
-          </Animated.View>
-        </>
-      )}
+            </View>
+
+            {/* Platform Info */}
+            {/* <Text style={styles.platformText}>Platform: {Platform.OS}</Text> */}   {/* This line will  print if it is WEB or ANDROID*/}
+
+            {/* Logout Button */}
+            <View style={styles.logoutContainer}>
+              <LogoutButton unsubRef={unsubRef} />
+            </View>
+          </ScrollView>
+        ) : (
+          <Text style={styles.loading}>Loading...</Text>
+        )}
+      </Animated.View>
+
+      {/* Main App View */}
+      <PatientManager />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
-  navbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    elevation: 5,
+  container: { flex: 1, backgroundColor: "#fff" },
+  menuIcon: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 2,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#0063dbff",
-    marginLeft: 50,
-  },
-  hamburger: { position: "absolute", left: 20, top: 15 },
-  content: { flex: 1, justifyContent: "center", alignItems: "center" },
-  hint: { marginTop: 10, fontSize: 16, color: "#777" },
   overlay: {
     position: "absolute",
     top: 0,
@@ -366,56 +232,78 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0,0,0,0.3)",
-    zIndex: 5,
   },
   drawer: {
     position: "absolute",
     top: 0,
-    left: 0,
-    backgroundColor: "#fff",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-    zIndex: 10,
+    bottom: 0,
+    width: drawerWidth,
+    backgroundColor: "#fafafa",
+    zIndex: 5,
+    padding: 20,
+    borderRightWidth: 1,
+    borderColor: "#ddd",
   },
-  drawerContent: { padding: 20 },
-  drawerItem: {
-    fontSize: 18,
-    fontWeight: "500",
-    marginBottom: 15,
-    color: "#333",
-  },
-  logoutBtn: { alignSelf: "flex-start", marginTop: 20 },
+  drawerTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
+  content: { flex: 1 },
+  label: { fontWeight: "bold", marginTop: 10 },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 10,
-    marginBottom: 15,
     borderRadius: 8,
-    backgroundColor: "#f9f9f9",
-    fontSize: 16,
+    padding: 10,
+    marginVertical: 5,
   },
   disabledInput: {
     backgroundColor: "#eaeaea",
-    color: "#999",
   },
-  pickerWrapper: {
+  picker: {
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    marginBottom: 15,
-    overflow: "hidden",
+    marginVertical: 5,
   },
-  editButtons: {
+  buttonContainer: {
     flexDirection: "row",
-    justifyContent: "flex-start",
-    marginTop: 10,
+    justifyContent: "space-between",
+    marginTop: 15,
   },
-  editIcon: {
-    alignSelf: "flex-end",
-    marginBottom: 10,
+  saveBtn: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 5,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#f44336",
+    padding: 10,
+    borderRadius: 8,
+    marginLeft: 5,
+  },
+  editBtn: {
+    flex: 1,
+    backgroundColor: "#2196F3",
+    padding: 10,
+    borderRadius: 8,
+  },
+  btnText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+  logoutContainer: {
+    marginTop: 20,
+  },
+  loading: {
+    marginTop: 20,
+    textAlign: "center",
+    color: "#888",
+  },
+  platformText: {
+    marginTop: 20,
+    textAlign: "center",
+    color: "#555",
   },
 });
