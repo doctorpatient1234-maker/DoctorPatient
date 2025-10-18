@@ -110,7 +110,7 @@ export default function RegisterScreen({ navigation }) {
         />
       </View>
 
-      
+
 
       {/* Password (only if email entered) */}
       {email ? (

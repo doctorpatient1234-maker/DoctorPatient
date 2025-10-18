@@ -1,5 +1,5 @@
 import React from "react";
-import { useState} from "react";
+import { useState } from "react";
 import { View, Text, StyleSheet, Button, SafeAreaView } from "react-native";
 import { auth } from "../firebaseConfig";
 import DoctorDetails from "./DoctorDetails";
@@ -28,7 +28,7 @@ export default function DoctorDashboard({ navigation }) {
 
         {/* Doctor Info (contains its own scroll view) */}
         <DoctorDetails />
-        
+
 
       </View>
     </SafeAreaView>

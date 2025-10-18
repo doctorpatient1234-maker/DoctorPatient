@@ -9,7 +9,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
-  
+
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
@@ -188,7 +188,7 @@ export default function DoctorDetails() {
               <Picker.Item label="Psychiatrist" value="Psychiatrist" />
               <Picker.Item label="Radiologist" value="Radiologist" />
               <Picker.Item label="Gynecology" value="Gynecology" />
-              
+
             </Picker>
 
             {/* Buttons */}
@@ -228,11 +228,11 @@ export default function DoctorDetails() {
           <PatientManager />
       </View>
       */}
-   
 
-    <View style={{ flex: 1, zIndex: 1, position: "relative" }}>
-  <PatientManager />
-</View>
+
+      <View style={{ flex: 1, zIndex: 1, position: "relative" }}>
+        <PatientManager />
+      </View>
 
     </View>
   );
@@ -330,31 +330,25 @@ const styles = StyleSheet.create({
   },
 
   overlay: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.3)",
-  zIndex: 10,
-},
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    zIndex: 10,
+  },
 
-drawer: {
-  position: "absolute",
-  top: 0,
-  bottom: 0,
-  left: 0,
-  width: drawerWidth,
-  backgroundColor: "#fafafa",
-  zIndex: 20,
-  padding: 20,
-  borderRightWidth: 1,
-  borderColor: "#ddd",
-},
-
-
-
- 
-
-
+  drawer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: drawerWidth,
+    backgroundColor: "#fafafa",
+    zIndex: 20,
+    padding: 20,
+    borderRightWidth: 1,
+    borderColor: "#ddd",
+  },
 });
