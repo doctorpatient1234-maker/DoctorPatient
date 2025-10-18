@@ -21,6 +21,9 @@ import {
     onSnapshot,
     updateDoc,
     doc,
+    getDoc,
+    setDoc,
+    serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -43,7 +46,7 @@ export default function PatientManager() {
         attachmentUrl: "",
     });
 
-    // Load patients for this doctor
+    // 🔹 Load patients for the logged-in doctor
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) return;
@@ -78,6 +81,7 @@ export default function PatientManager() {
         setEditingPatient(null);
     };
 
+    // 🔹 File Upload
     const handleFileUpload = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -106,6 +110,7 @@ export default function PatientManager() {
         }
     };
 
+    // 🔹 Add or Update Patient
     const handleAddOrUpdatePatient = async () => {
         const { name, address, disease, mobile } = newPatient;
 
@@ -121,35 +126,82 @@ export default function PatientManager() {
                 return;
             }
 
-            const patientsCol = collection(db, "users", user.uid, "patients");
+            const doctorId = user.uid;
+            const doctorName = user.displayName || "Unknown Doctor";
+
+            const patientsCol = collection(db, "users", doctorId, "patients");
+            const visitDate = new Date().toISOString();
 
             if (editingPatient) {
-                // ✅ Get reference to the document being edited
-                const docRef = doc(db, "users", user.uid, "patients", editingPatient.id);
+                // 🔄 Update in doctor's subcollection
+                const docRef = doc(db, "users", doctorId, "patients", editingPatient.id);
+                await updateDoc(docRef, {
+                    ...newPatient,
+                    updatedAt: serverTimestamp(),
+                    visitDate,
+                });
 
-                // ✅ Prepare only the editable fields
-                const updatedData = {
-                    name: newPatient.name,
-                    address: newPatient.address,
-                    disease: newPatient.disease,
-                    cause: newPatient.cause || "",
-                    prescription: newPatient.prescription || "",
-                    mobile: newPatient.mobile,
+                // 🔄 Update in global record
+                const globalRef = doc(db, "patients", mobile);
+                await updateDoc(globalRef, {
+                    name,
+                    address,
                     email: newPatient.email || "",
-                    attachmentUrl: newPatient.attachmentUrl || "",
-                    updatedAt: new Date().toISOString(), // track updates
-                };
-
-                // ✅ Update Firestore
-                await updateDoc(docRef, updatedData);
+                    lastUpdated: serverTimestamp(),
+                    visitHistory: arrayUnion({
+                        doctorId,
+                        doctorName,
+                        date: visitDate,
+                    }),
+                });
 
                 Alert.alert("✅ Success", "Patient details updated successfully.");
             } else {
-                // ✅ Add new document
-                await addDoc(patientsCol, {
+                // 🆕 Add to doctor's subcollection
+                const docRef = await addDoc(patientsCol, {
                     ...newPatient,
-                    dateAdded: new Date().toISOString(),
+                    dateAdded: serverTimestamp(),
+                    visitDate,
                 });
+
+                // 🧭 Add or update global record
+                const globalRef = doc(db, "patients", mobile);
+                const snap = await getDoc(globalRef);
+
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const updatedDoctors = data.linkedDoctors
+                        ? Array.from(new Set([...data.linkedDoctors, doctorId]))
+                        : [doctorId];
+
+                    await updateDoc(globalRef, {
+                        linkedDoctors: updatedDoctors,
+                        lastUpdated: serverTimestamp(),
+                        visitHistory: arrayUnion({
+                            doctorId,
+                            doctorName,
+                            date: visitDate,
+                        }),
+                    });
+                } else {
+                    await setDoc(globalRef, {
+                        name,
+                        address,
+                        email: newPatient.email || "",
+                        mobile,
+                        linkedDoctors: [doctorId],
+                        createdAt: serverTimestamp(),
+                        lastUpdated: serverTimestamp(),
+                        visitHistory: [
+                            {
+                                doctorId,
+                                doctorName,
+                                date: visitDate,
+                            },
+                        ],
+                    });
+                }
+
                 Alert.alert("✅ Success", "Patient added successfully.");
             }
 
@@ -157,17 +209,23 @@ export default function PatientManager() {
             setFormVisible(false);
             if (!showPatients) setShowPatients(true);
         } catch (err) {
-            console.error("Error adding/updating patient:", err);
-            Alert.alert("Error", "Could not save patient. Check console for details.");
+            console.error("🔥 Error adding/updating patient:", err);
+            Alert.alert("Error", err.message || "Could not save patient");
         }
     };
 
-
-    // ✅ Search by name, address, mobile, email, or date
+    // 🔹 Search by name, address, mobile, email, or date
     const filteredPatients = patients.filter((p) => {
         const q = searchQuery.toLowerCase().trim();
-        const dateString = new Date(p.dateAdded).toISOString().slice(0, 10); // YYYY-MM-DD
-        const localDate = new Date(p.dateAdded).toLocaleDateString();
+        const dateString = p.dateAdded
+            ? new Date(p.dateAdded.toDate ? p.dateAdded.toDate() : p.dateAdded)
+                .toISOString()
+                .slice(0, 10)
+            : "";
+        const localDate = p.dateAdded
+            ? new Date(p.dateAdded.toDate ? p.dateAdded.toDate() : p.dateAdded)
+                .toLocaleDateString()
+            : "";
 
         return (
             p.name?.toLowerCase().includes(q) ||
@@ -278,7 +336,12 @@ export default function PatientManager() {
                                     {p.cause ? <Text>🔍 {p.cause}</Text> : null}
                                     {p.prescription ? <Text>💊 {p.prescription}</Text> : null}
                                     <Text style={styles.date}>
-                                        📅 {new Date(p.dateAdded).toLocaleDateString()}
+                                        📅{" "}
+                                        {p.dateAdded
+                                            ? new Date(
+                                                p.dateAdded.toDate ? p.dateAdded.toDate() : p.dateAdded
+                                            ).toLocaleDateString()
+                                            : ""}
                                     </Text>
                                     {p.attachmentUrl ? (
                                         <Text
