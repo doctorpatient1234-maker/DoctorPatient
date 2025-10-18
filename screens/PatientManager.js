@@ -129,23 +129,19 @@ export default function PatientManager() {
 
             const doctorId = user.uid;
 
-            // Fetch doctor's name from /users/{doctorId}
-            // ✅ Fetch doctor's full name from /users/{doctorId}
+            // Fetch doctor's full name
             let doctorName = "Unknown Doctor";
             try {
                 const doctorRef = doc(db, "users", doctorId);
                 const doctorSnap = await getDoc(doctorRef);
 
                 if (doctorSnap.exists()) {
-                    const data = doctorSnap.data();
-                    // use fullName first, fallback to email/displayName if missing
                     doctorName =
-                        data.fullName ||
+                        doctorSnap.data().fullName ||
                         user.displayName ||
                         user.email?.split("@")[0] ||
                         "Unknown Doctor";
                 } else {
-                    // if no doc found, create a basic one so it's available next time
                     doctorName =
                         user.displayName ||
                         user.email?.split("@")[0] ||
@@ -166,37 +162,33 @@ export default function PatientManager() {
                     "Unknown Doctor";
             }
 
-
             const patientsCol = collection(db, "users", doctorId, "patients");
             const visitDate = new Date().toISOString();
+            const globalDocRef = doc(db, "patients", mobile);
+            const globalSnap = await getDoc(globalDocRef);
 
+            // 🔹 Case 1: Editing existing patient
             if (editingPatient) {
-                // 🔄 Update in doctor's subcollection
+                // Update in doctor's patients subcollection
                 const docRef = doc(db, "users", doctorId, "patients", editingPatient.id);
                 await updateDoc(docRef, {
                     ...newPatient,
                     updatedAt: serverTimestamp(),
-                    visitDate,
                 });
 
-                // 🔄 Update in global record (append visitHistory)
-                const globalRef = doc(db, "patients", mobile);
-                const globalSnap = await getDoc(globalRef);
+                // Only track edit history, do not add visitHistory or addedByDoctor
                 if (globalSnap.exists()) {
-                    await updateDoc(globalRef, {
-                        name: newPatient.name,
-                        address: newPatient.address,
-                        email: newPatient.email || "",
-                        lastUpdated: serverTimestamp(),
-                        visitHistory: arrayUnion({
+                    await updateDoc(globalDocRef, {
+                        editHistory: arrayUnion({
                             doctorId,
                             doctorName,
-                            date: visitDate,
+                            editedAt: new Date().toISOString(),
                         }),
+                        lastUpdated: serverTimestamp(),
                     });
                 } else {
-                    // If somehow global record doesn't exist (create it)
-                    await setDoc(globalRef, {
+                    // If somehow missing in global collection, create minimally
+                    await setDoc(globalDocRef, {
                         name: newPatient.name,
                         address: newPatient.address,
                         email: newPatient.email || "",
@@ -204,29 +196,32 @@ export default function PatientManager() {
                         linkedDoctors: [doctorId],
                         createdAt: serverTimestamp(),
                         lastUpdated: serverTimestamp(),
-                        visitHistory: [
+                        visitHistory: [],
+                        editHistory: [
                             {
                                 doctorId,
                                 doctorName,
-                                date: visitDate,
+                                editedAt: new Date().toISOString(),
                             },
                         ],
                     });
                 }
 
                 Alert.alert("✅ Success", "Patient details updated successfully.");
-            } else {
-                // 🆕 Add to doctor's subcollection
-                const docRef = await addDoc(patientsCol, {
+            }
+
+            // 🔹 Case 2: Adding new patient
+            // 🔹 Case 2: Adding new patient
+            // 🔹 Case 2: Adding new patient
+            else {
+                // Add to doctor's subcollection
+                await addDoc(patientsCol, {
                     ...newPatient,
                     dateAdded: serverTimestamp(),
                     visitDate,
                 });
 
-                // 🧭 Add or update global patient collection
-                const globalDocRef = doc(db, "patients", mobile);
-                const globalSnap = await getDoc(globalDocRef);
-
+                // Add or update global patient collection
                 if (globalSnap.exists()) {
                     const data = globalSnap.data();
                     const updatedDoctors = data.linkedDoctors
@@ -241,14 +236,17 @@ export default function PatientManager() {
                             doctorName,
                             date: visitDate,
                         }),
+                        // ✅ addedByDoctor remains unchanged
                     });
                 } else {
+                    // 🔹 first-time addition
                     await setDoc(globalDocRef, {
                         name: newPatient.name,
                         address: newPatient.address,
                         email: newPatient.email || "",
                         mobile,
                         linkedDoctors: [doctorId],
+                        addedByDoctor: true, // ✅ first-time addition by doctor
                         createdAt: serverTimestamp(),
                         lastUpdated: serverTimestamp(),
                         visitHistory: [
@@ -258,11 +256,14 @@ export default function PatientManager() {
                                 date: visitDate,
                             },
                         ],
+                        editHistory: [],
                     });
                 }
 
                 Alert.alert("✅ Success", "Patient added successfully.");
             }
+
+
 
             resetForm();
             setFormVisible(false);
@@ -272,6 +273,7 @@ export default function PatientManager() {
             Alert.alert("Error", err.message || "Could not save patient");
         }
     };
+
 
     // 🔹 Search by name, address, mobile, email, or date
     const filteredPatients = patients.filter((p) => {
