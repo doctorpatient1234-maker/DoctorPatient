@@ -24,6 +24,7 @@ import {
     getDoc,
     setDoc,
     serverTimestamp,
+    arrayUnion,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -110,7 +111,7 @@ export default function PatientManager() {
         }
     };
 
-    // 🔹 Add or Update Patient
+    // 🔹 Add or Update Patient (now fetches doctor's name from users collection)
     const handleAddOrUpdatePatient = async () => {
         const { name, address, disease, mobile } = newPatient;
 
@@ -127,7 +128,44 @@ export default function PatientManager() {
             }
 
             const doctorId = user.uid;
-            const doctorName = user.displayName || "Unknown Doctor";
+
+            // Fetch doctor's name from /users/{doctorId}
+            // ✅ Fetch doctor's full name from /users/{doctorId}
+            let doctorName = "Unknown Doctor";
+            try {
+                const doctorRef = doc(db, "users", doctorId);
+                const doctorSnap = await getDoc(doctorRef);
+
+                if (doctorSnap.exists()) {
+                    const data = doctorSnap.data();
+                    // use fullName first, fallback to email/displayName if missing
+                    doctorName =
+                        data.fullName ||
+                        user.displayName ||
+                        user.email?.split("@")[0] ||
+                        "Unknown Doctor";
+                } else {
+                    // if no doc found, create a basic one so it's available next time
+                    doctorName =
+                        user.displayName ||
+                        user.email?.split("@")[0] ||
+                        "Unknown Doctor";
+
+                    await setDoc(doctorRef, {
+                        fullName: doctorName,
+                        email: user.email,
+                        createdAt: new Date().toISOString(),
+                        role: "doctor",
+                    });
+                }
+            } catch (err) {
+                console.warn("⚠️ Could not fetch doctor name:", err);
+                doctorName =
+                    user.displayName ||
+                    user.email?.split("@")[0] ||
+                    "Unknown Doctor";
+            }
+
 
             const patientsCol = collection(db, "users", doctorId, "patients");
             const visitDate = new Date().toISOString();
@@ -141,19 +179,40 @@ export default function PatientManager() {
                     visitDate,
                 });
 
-                // 🔄 Update in global record
+                // 🔄 Update in global record (append visitHistory)
                 const globalRef = doc(db, "patients", mobile);
-                await updateDoc(globalRef, {
-                    name,
-                    address,
-                    email: newPatient.email || "",
-                    lastUpdated: serverTimestamp(),
-                    visitHistory: arrayUnion({
-                        doctorId,
-                        doctorName,
-                        date: visitDate,
-                    }),
-                });
+                const globalSnap = await getDoc(globalRef);
+                if (globalSnap.exists()) {
+                    await updateDoc(globalRef, {
+                        name: newPatient.name,
+                        address: newPatient.address,
+                        email: newPatient.email || "",
+                        lastUpdated: serverTimestamp(),
+                        visitHistory: arrayUnion({
+                            doctorId,
+                            doctorName,
+                            date: visitDate,
+                        }),
+                    });
+                } else {
+                    // If somehow global record doesn't exist (create it)
+                    await setDoc(globalRef, {
+                        name: newPatient.name,
+                        address: newPatient.address,
+                        email: newPatient.email || "",
+                        mobile,
+                        linkedDoctors: [doctorId],
+                        createdAt: serverTimestamp(),
+                        lastUpdated: serverTimestamp(),
+                        visitHistory: [
+                            {
+                                doctorId,
+                                doctorName,
+                                date: visitDate,
+                            },
+                        ],
+                    });
+                }
 
                 Alert.alert("✅ Success", "Patient details updated successfully.");
             } else {
@@ -164,17 +223,17 @@ export default function PatientManager() {
                     visitDate,
                 });
 
-                // 🧭 Add or update global record
-                const globalRef = doc(db, "patients", mobile);
-                const snap = await getDoc(globalRef);
+                // 🧭 Add or update global patient collection
+                const globalDocRef = doc(db, "patients", mobile);
+                const globalSnap = await getDoc(globalDocRef);
 
-                if (snap.exists()) {
-                    const data = snap.data();
+                if (globalSnap.exists()) {
+                    const data = globalSnap.data();
                     const updatedDoctors = data.linkedDoctors
                         ? Array.from(new Set([...data.linkedDoctors, doctorId]))
                         : [doctorId];
 
-                    await updateDoc(globalRef, {
+                    await updateDoc(globalDocRef, {
                         linkedDoctors: updatedDoctors,
                         lastUpdated: serverTimestamp(),
                         visitHistory: arrayUnion({
@@ -184,9 +243,9 @@ export default function PatientManager() {
                         }),
                     });
                 } else {
-                    await setDoc(globalRef, {
-                        name,
-                        address,
+                    await setDoc(globalDocRef, {
+                        name: newPatient.name,
+                        address: newPatient.address,
                         email: newPatient.email || "",
                         mobile,
                         linkedDoctors: [doctorId],
