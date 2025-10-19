@@ -37,7 +37,7 @@ export default function PatientManager() {
     const [uploading, setUploading] = useState(false);
 
     const [newPatient, setNewPatient] = useState({
-        name: "",
+        fullName: "",
         address: "",
         disease: "",
         cause: "",
@@ -70,7 +70,7 @@ export default function PatientManager() {
 
     const resetForm = () => {
         setNewPatient({
-            name: "",
+            fullName: "",
             address: "",
             disease: "",
             cause: "",
@@ -111,11 +111,11 @@ export default function PatientManager() {
         }
     };
 
-    // 🔹 Add or Update Patient (now fetches doctor's name from users collection)
+    // 🔹 Add or Update Patient
     const handleAddOrUpdatePatient = async () => {
-        const { name, address, disease, mobile } = newPatient;
+        const { fullName, address, disease, mobile } = newPatient;
 
-        if (!name || !address || !disease || !mobile) {
+        if (!fullName || !address || !disease || !mobile) {
             Alert.alert("Error", "Please fill in all required fields.");
             return;
         }
@@ -169,14 +169,12 @@ export default function PatientManager() {
 
             // 🔹 Case 1: Editing existing patient
             if (editingPatient) {
-                // Update in doctor's patients subcollection
                 const docRef = doc(db, "users", doctorId, "patients", editingPatient.id);
                 await updateDoc(docRef, {
                     ...newPatient,
                     updatedAt: serverTimestamp(),
                 });
 
-                // Only track edit history, do not add visitHistory or addedByDoctor
                 if (globalSnap.exists()) {
                     await updateDoc(globalDocRef, {
                         editHistory: arrayUnion({
@@ -187,9 +185,8 @@ export default function PatientManager() {
                         lastUpdated: serverTimestamp(),
                     });
                 } else {
-                    // If somehow missing in global collection, create minimally
                     await setDoc(globalDocRef, {
-                        name: newPatient.name,
+                        fullName: newPatient.fullName,
                         address: newPatient.address,
                         email: newPatient.email || "",
                         mobile,
@@ -211,17 +208,13 @@ export default function PatientManager() {
             }
 
             // 🔹 Case 2: Adding new patient
-            // 🔹 Case 2: Adding new patient
-            // 🔹 Case 2: Adding new patient
             else {
-                // Add to doctor's subcollection
                 await addDoc(patientsCol, {
                     ...newPatient,
                     dateAdded: serverTimestamp(),
                     visitDate,
                 });
 
-                // Add or update global patient collection
                 if (globalSnap.exists()) {
                     const data = globalSnap.data();
                     const updatedDoctors = data.linkedDoctors
@@ -236,17 +229,18 @@ export default function PatientManager() {
                             doctorName,
                             date: visitDate,
                         }),
-                        // ✅ addedByDoctor remains unchanged
+                        // Keep addedByDoctor unchanged if already exists
                     });
                 } else {
-                    // 🔹 first-time addition
+                    // First-time addition
                     await setDoc(globalDocRef, {
-                        name: newPatient.name,
+                        fullName: newPatient.fullName,
                         address: newPatient.address,
                         email: newPatient.email || "",
                         mobile,
                         linkedDoctors: [doctorId],
-                        addedByDoctor: true, // ✅ first-time addition by doctor
+                        addedByDoctor: true, // first-time addition
+                        role: "patient", // ✅ new addition
                         createdAt: serverTimestamp(),
                         lastUpdated: serverTimestamp(),
                         visitHistory: [
@@ -263,8 +257,6 @@ export default function PatientManager() {
                 Alert.alert("✅ Success", "Patient added successfully.");
             }
 
-
-
             resetForm();
             setFormVisible(false);
             if (!showPatients) setShowPatients(true);
@@ -274,10 +266,10 @@ export default function PatientManager() {
         }
     };
 
-
-    // 🔹 Search by name, address, mobile, email, or date
+    // 🔹 Search filter
     const filteredPatients = patients.filter((p) => {
         const q = searchQuery.toLowerCase().trim();
+        const nameValue = p.fullName || p.name || "";
         const dateString = p.dateAdded
             ? new Date(p.dateAdded.toDate ? p.dateAdded.toDate() : p.dateAdded)
                 .toISOString()
@@ -289,7 +281,7 @@ export default function PatientManager() {
             : "";
 
         return (
-            p.name?.toLowerCase().includes(q) ||
+            nameValue.toLowerCase().includes(q) ||
             p.address?.toLowerCase().includes(q) ||
             p.mobile?.toLowerCase().includes(q) ||
             p.email?.toLowerCase().includes(q) ||
@@ -334,7 +326,7 @@ export default function PatientManager() {
                         </Text>
 
                         {[
-                            { field: "name", placeholder: "Patient Name *" },
+                            { field: "fullName", placeholder: "Patient Name *" },
                             { field: "address", placeholder: "Address *" },
                             { field: "disease", placeholder: "Disease *" },
                             { field: "cause", placeholder: "Cause" },
@@ -389,7 +381,7 @@ export default function PatientManager() {
                         {filteredPatients.length > 0 ? (
                             filteredPatients.map((p) => (
                                 <View key={p.id} style={styles.card}>
-                                    <Text style={styles.cardTitle}>{p.name}</Text>
+                                    <Text style={styles.cardTitle}>{p.fullName || p.name}</Text>
                                     <Text>🏠 {p.address}</Text>
                                     <Text>🦠 {p.disease}</Text>
                                     {p.mobile ? <Text>📞 {p.mobile}</Text> : null}
