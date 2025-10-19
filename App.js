@@ -23,20 +23,28 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // First check 'users' collection
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const role = userDoc.data().role;
             setInitialScreen(role === "doctor" ? "DoctorDashboard" : "PatientDashboard");
           } else {
-            setInitialScreen("Login");
+            // If not in users, check 'hospitals' collection
+            const hospitalDoc = await getDoc(doc(db, "hospitals", user.uid));
+            if (hospitalDoc.exists()) {
+              setInitialScreen("HospitalDashboard");
+            } else {
+              setInitialScreen("Login"); // fallback
+            }
           }
         } catch (err) {
-          console.error("Error fetching user role:", err);
+          console.error("Error fetching user/hospital role:", err);
           setInitialScreen("Login");
         }
       } else {
         setInitialScreen("Login");
       }
+
       setLoading(false);
     });
 
