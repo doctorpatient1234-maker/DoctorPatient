@@ -18,7 +18,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const fadeAnim = useState(new Animated.Value(0))[0]; // for fade effect
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   const showError = (message) => {
     setErrorMsg(message);
@@ -28,7 +28,6 @@ export default function LoginScreen({ navigation }) {
       useNativeDriver: true,
     }).start();
 
-    // Auto-hide after 3 seconds
     setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -41,7 +40,10 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
+      const uid = userCred.user.uid;
+
+      // Step 1️⃣ — Check if user exists in "users"
+      const userDoc = await getDoc(doc(db, "users", uid));
 
       if (userDoc.exists()) {
         const role = userDoc.data().role;
@@ -50,10 +52,22 @@ export default function LoginScreen({ navigation }) {
         } else {
           navigation.replace("PatientDashboard");
         }
-      } else {
-        showError("No user role found. Please register again.");
+        return;
       }
+
+      // Step 2️⃣ — If not found in "users", check in "hospitals"
+      const hospitalDoc = await getDoc(doc(db, "hospitals", uid));
+
+      if (hospitalDoc.exists()) {
+        navigation.replace("HospitalDashboard");
+        return;
+      }
+
+      // Step 3️⃣ — No role found
+      showError("No account found. Please register again.");
+
     } catch (err) {
+      console.error("Login Error:", err);
       let errorMessage = "Something went wrong. Please try again.";
 
       switch (err.code) {
@@ -83,19 +97,16 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      {/* Error Banner */}
       {errorMsg ? (
         <Animated.View style={[styles.errorBanner, { opacity: fadeAnim }]}>
           <Text style={styles.errorText}>{errorMsg}</Text>
         </Animated.View>
       ) : null}
 
-      {/* Header Icon */}
       <Ionicons name="medkit" size={60} color="#0063dbff" style={styles.icon} />
       <Text style={styles.title}>Welcome Back</Text>
       <Text style={styles.subtitle}>Login to continue</Text>
 
-      {/* Email Input */}
       <View style={styles.inputContainer}>
         <Ionicons name="mail-outline" size={20} color="#0063dbff" />
         <TextInput
@@ -108,7 +119,6 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
 
-      {/* Password Input */}
       <View style={styles.inputContainer}>
         <Ionicons name="lock-closed-outline" size={20} color="#0063dbff" />
         <TextInput
@@ -120,12 +130,10 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
 
-      {/* Login Button */}
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
 
-      {/* Register Link */}
       <TouchableOpacity onPress={() => navigation.navigate("Register")}>
         <Text style={styles.registerText}>
           Don’t have an account?{" "}

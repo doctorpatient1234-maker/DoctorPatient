@@ -9,7 +9,9 @@ import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import DoctorDashboard from "./screens/DoctorDashboard";
 import PatientDashboard from "./screens/PatientDashboard";
+import HospitalDashboard from "./screens/Hospital/HospitalDashboard";
 import { Platform } from "react-native";
+
 
 const Stack = createStackNavigator();
 
@@ -70,7 +72,7 @@ export default function App() {
 
   if (loading) return null;
 
-  
+
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName={initialScreen}>
@@ -93,6 +95,11 @@ export default function App() {
           name="PatientDashboard"
           component={PatientDashboard}
           options={{ title: "Patient Dashboard" }}
+        />
+        <Stack.Screen
+          name="HospitalDashboard"
+          component={HospitalDashboard}
+          options={{ title: "Hospital Dashboard" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
