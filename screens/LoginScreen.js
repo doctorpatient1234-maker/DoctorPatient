@@ -12,10 +12,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState("");
+  const [emailOrMobile, setEmailOrMobile] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -39,7 +39,29 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      let emailToUse = emailOrMobile;
+
+      // ✅ If input looks like a mobile number, get corresponding email
+      if (!emailOrMobile.includes("@")) {
+        const q = query(collection(db, "users"), where("mobile", "==", emailOrMobile));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          showError("No account found with this mobile number.");
+          return;
+        }
+
+        // Use first matched document’s email
+        const userData = querySnapshot.docs[0].data();
+        emailToUse = userData.email;
+        if (!emailToUse) {
+          showError("Email not linked to this mobile number. Please register again.");
+          return;
+        }
+      }
+
+      // ✅ Proceed with normal Firebase Email+Password login
+      const userCred = await signInWithEmailAndPassword(auth, emailToUse, password);
       const uid = userCred.user.uid;
 
       // Step 1️⃣ — Check if user exists in "users"
@@ -105,17 +127,17 @@ export default function LoginScreen({ navigation }) {
 
       <Ionicons name="medkit" size={60} color="#0063dbff" style={styles.icon} />
       <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Login to continue</Text>
+      <Text style={styles.subtitle}>Login using email or mobile number</Text>
 
       <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color="#0063dbff" />
+        <Ionicons name="person-outline" size={20} color="#0063dbff" />
         <TextInput
           style={styles.input}
-          placeholder="Enter your email"
-          value={email}
-          onChangeText={setEmail}
+          placeholder="Email or Mobile number"
+          value={emailOrMobile}
+          onChangeText={setEmailOrMobile}
           autoCapitalize="none"
-          keyboardType="email-address"
+          keyboardType="default"
         />
       </View>
 
