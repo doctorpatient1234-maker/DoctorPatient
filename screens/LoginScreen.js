@@ -41,32 +41,44 @@ export default function LoginScreen({ navigation }) {
     try {
       let emailToUse = emailOrMobile;
 
-      // ✅ If input looks like a mobile number, get corresponding email
+      // ✅ STEP 1: If input is mobile, find its email in users or hospitals collection
       if (!emailOrMobile.includes("@")) {
-        const q = query(collection(db, "users"), where("mobile", "==", emailOrMobile));
-        const querySnapshot = await getDocs(q);
+        let emailFound = null;
 
-        if (querySnapshot.empty) {
+        // 🔹 Check "users" collection (doctors/patients)
+        const userQuery = query(collection(db, "users"), where("mobile", "==", emailOrMobile));
+        const userSnap = await getDocs(userQuery);
+
+        if (!userSnap.empty) {
+          const userData = userSnap.docs[0].data();
+          emailFound = userData.email;
+        }
+
+        // 🔹 If not found, check "hospitals" collection
+        if (!emailFound) {
+          const hospitalQuery = query(collection(db, "hospitals"), where("mobile", "==", emailOrMobile));
+          const hospitalSnap = await getDocs(hospitalQuery);
+
+          if (!hospitalSnap.empty) {
+            const hospitalData = hospitalSnap.docs[0].data();
+            emailFound = hospitalData.email;
+          }
+        }
+
+        if (!emailFound) {
           showError("No account found with this mobile number.");
           return;
         }
 
-        // Use first matched document’s email
-        const userData = querySnapshot.docs[0].data();
-        emailToUse = userData.email;
-        if (!emailToUse) {
-          showError("Email not linked to this mobile number. Please register again.");
-          return;
-        }
+        emailToUse = emailFound;
       }
 
-      // ✅ Proceed with normal Firebase Email+Password login
+      // ✅ STEP 2: Sign in with Email + Password
       const userCred = await signInWithEmailAndPassword(auth, emailToUse, password);
       const uid = userCred.user.uid;
 
-      // Step 1️⃣ — Check if user exists in "users"
+      // ✅ STEP 3: Check if it's a doctor/patient
       const userDoc = await getDoc(doc(db, "users", uid));
-
       if (userDoc.exists()) {
         const role = userDoc.data().role;
         if (role === "doctor") {
@@ -77,15 +89,14 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      // Step 2️⃣ — If not found in "users", check in "hospitals"
+      // ✅ STEP 4: Check if it's a hospital admin
       const hospitalDoc = await getDoc(doc(db, "hospitals", uid));
-
       if (hospitalDoc.exists()) {
         navigation.replace("HospitalDashboard");
         return;
       }
 
-      // Step 3️⃣ — No role found
+      // ❌ No valid record found
       showError("No account found. Please register again.");
 
     } catch (err) {
