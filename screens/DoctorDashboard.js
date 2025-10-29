@@ -11,8 +11,6 @@ export default function DoctorDashboard({ navigation }) {
     navigation.replace("Login");
   };
 
-
-
   return (
     <SafeAreaView style={styles.safeArea}>
 
@@ -26,7 +24,8 @@ export default function DoctorDashboard({ navigation }) {
         </View>
 
 
-        {/* Doctor Info (contains its own scroll view) */}
+
+        {/* Doctor Info (contains its own scroll view) ..*/}
         <DoctorDetails />
 
 
